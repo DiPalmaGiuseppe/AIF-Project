@@ -5,121 +5,18 @@
 :- dynamic stepping_on/3.
 :- dynamic unsafe_position/2.
 
-% RULES FOR ACTION SELECTION
-% REMEMBER: The action rules are ordered by priority
-% For movement actions, always check is the direction selected is safe.
-
-% eat the apple and win the game
-% Requirements:
-%   - agent must have a comestible apple
-action(eat) :- has(agent, comestible, apple).
-
-%%% "Deal with enemies" rules %%%
-% These 3 rules are mutually exclusive
-
-% attack an enemy
-% the attack is automatic when you move towards it
-% in this case, it is useless to check if the new position is safe - it is already occupied by the enemy
-% Requirements:
-%   - agent must be at a certain position
-%   - enemy must be at a certain position
-%   - agent is weilding a weapon
-%   - enemy is beatable with the weapon
-%   - agent and enemy are close
-%   - agent is healthy
-%   - next step is in the direction towards the enemy
-action(attack(Direction)) :- position(agent, _, AgentR, AgentC), position(enemy, Type, EnemyR, EnemyC),
-                             wields_weapon(agent, Weapon), is_beatable(Type, Weapon),
-                             is_close(AgentR, AgentC, EnemyR, EnemyC), healthy,
+action(attack(Direction)) :- position(agent, _, AgentR, AgentC), position(enemy, _, EnemyR, EnemyC),
+                             is_close(AgentR, AgentC, EnemyR, EnemyC), % healthy,
                              next_step(AgentR, AgentC, EnemyR, EnemyC, Direction).
 
-% run away from an enemy, when it is not safe to attack
-% choose the opposite direction wrt the enemy position
-% Requirements:
-%   - agent must be at a certain position
-%   - enemy must be at a certain position
-%   - agent and enemy are close
-%   - agent is not healthy
-%   - next step is in the direction towards the enemy
-%   - define the opposite direction wrt the next step one
-%   - the opposite direction is a safe direction
+action(move_towards_enemy(Direction)) :- position(agent, _, AgentR, AgentC),
+                                       position(enemy, _, EnemyR, EnemyC), next_step(AgentR, AgentC, EnemyR, EnemyC, Direction).
+                                       %safe_direction(AgentR, AgentC, D, Direction).
+
 action(run(OppositeDirection)) :- position(agent, _, AgentR, AgentC), position(enemy, _, EnemyR, EnemyC),
-                                  is_close(AgentR, AgentC, EnemyR, EnemyC), \+ healthy,
+                                  is_close(AgentR, AgentC, EnemyR, EnemyC), % \+ healthy,
                                   next_step(AgentR, AgentC, EnemyR, EnemyC, Direction),
                                   opposite(Direction, OD), safe_direction(AgentR, AgentC, OD, OppositeDirection).
-
-% if not wielded, go towards the weapon available in the map
-% Requirements:
-%   - agent must be at a certain position
-%   - enemy must be at a certain position
-%   - agent and enemy are close
-%   - agent is weilding a weapon
-%   - enemy is not beatable with the weapon
-%   - the weapon is at a given position
-%   - next step is in the direction towards the weapon
-%   - the next step direction is safe
-action(get_to_weapon(Direction)) :- position(agent, _, AgentR, AgentC), position(enemy, Type, EnemyR, EnemyC),
-                                    is_close(AgentR, AgentC, EnemyR, EnemyC),
-                                    wields_weapon(agent, Weapon), \+ is_beatable(Type, Weapon),
-                                    position(weapon, tsurugi, WeaponR, WeaponC),
-                                    next_step(AgentR, AgentC, WeaponR, WeaponC, D), safe_direction(AgentR, AgentC, D, Direction).
-
-%%% End of "Deal with enemies" rules %%%
-
-%%% "Deal with objects" rules %%%
-
-% pick up an object
-% Requirements:
-%   - agent is stepping on a generic object (hint: you can use 'ObjClass' and ignore the name of the object)
-%   - the class of object is pickable
-action(pick) :- stepping_on(agent, ObjClass, _), is_pickable(ObjClass).
-
-% if the agent has a weapon, wield it
-% Requirements:
-%   - agent has a weapon with a given name ('Weapon')
-action(wield(Weapon)) :- has(agent, weapon, Weapon).
-
-%%% End of "Deal with objects" rules %%%
-
-% If you cannot apply previous rules, just go towards the goal
-% get the next movement to get closer to the goal
-% Requirements:
-%   - agent must be at a certain position
-%   - the comestible apple must be at a certain position
-%   - next step is towards the apple
-%   - next step direction is a safe direction
-action(move(Direction)) :- position(agent, _, AgentR, AgentC), position(comestible, apple, AppleR, AppleC),
-                           next_step(AgentR, AgentC, AppleR, AppleC, D), safe_direction(AgentR, AgentC, D, Direction).
-
-% If the apple is not visible on the map - e.g. the enemy took it
-% Try to kill it, if beatable
-% Requirements:
-%   - apple is not found at any position
-%   - agent must be at a certain position
-%   - enemy must be at a certain position
-%   - agent is wielding a weapon
-%   - enemy is beatable with the weapon
-%   - next step is towards the enemy
-%   - next step direction is a safe direction
-action(move_towards_enemy(Direction)) :- \+ position(comestible, apple, _, _), position(agent, _, AgentR, AgentC),
-                                       position(enemy, Type, EnemyR, EnemyC), wields_weapon(agent, Weapon),
-                                       is_beatable(Type, Weapon), next_step(AgentR, AgentC, EnemyR, EnemyC, D),
-                                       safe_direction(AgentR, AgentC, D, Direction).
-
-% If not beatable, go towards the weapon
-% Requirements:
-%   - apple is not found at any position
-%   - agent must be at a certain position
-%   - enemy must be at any position
-%   - agent is wielding a weapon
-%   - enemy is not beatable with the weapon
-%   - weapon must be at a certain position
-%   - next step is towards the weapon
-%   - next step direction is a safe direction
-action(get_to_weapon(Direction)) :- \+ position(comestible, apple, _, _), position(agent, _, AgentR, AgentC),
-                                       position(enemy, Type, _, _), wields_weapon(agent, Weapon),
-                                       \+ is_beatable(Type, Weapon), position(weapon, tsurugi, WeaponR, WeaponC),
-                                       next_step(AgentR, AgentC, WeaponR, WeaponC, D), safe_direction(AgentR, AgentC, D, Direction).
 
 % -----------------------------------------------------------------------------------------------
 
