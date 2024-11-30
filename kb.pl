@@ -6,17 +6,25 @@
 :- dynamic unsafe_position/2.
 
 action(attack(Direction)) :- position(agent, _, AgentR, AgentC), position(enemy, _, EnemyR, EnemyC),
-                             is_close(AgentR, AgentC, EnemyR, EnemyC), % healthy,
+                             is_close(AgentR, AgentC, EnemyR, EnemyC),  healthy,
                              next_step(AgentR, AgentC, EnemyR, EnemyC, Direction).
 
-action(move_towards_enemy(Direction)) :- position(agent, _, AgentR, AgentC),
-                                       position(enemy, _, EnemyR, EnemyC), next_step(AgentR, AgentC, EnemyR, EnemyC, Direction).
-                                       %safe_direction(AgentR, AgentC, D, Direction).
+action(move_towards_enemy(Direction)) :- position(agent, _, AgentR, AgentC), position(enemy, _, EnemyR, EnemyC),
+                                        next_step(AgentR, AgentC, EnemyR, EnemyC, D), healthy,
+                                        safe_direction(AgentR, AgentC, D, Direction).
 
 action(run(OppositeDirection)) :- position(agent, _, AgentR, AgentC), position(enemy, _, EnemyR, EnemyC),
-                                  is_close(AgentR, AgentC, EnemyR, EnemyC), % \+ healthy,
+                                  is_close(AgentR, AgentC, EnemyR, EnemyC),  \+ healthy,
                                   next_step(AgentR, AgentC, EnemyR, EnemyC, Direction),
                                   opposite(Direction, OD), safe_direction(AgentR, AgentC, OD, OppositeDirection).
+
+action(drink) :- has(agent, potion, health), \+ healthy.
+
+action(pick) :- is_pickable(P), stepping_on(agent, P, health).
+
+action(move_towards_potion(Direction)) :-   position(agent, _, AgentR, AgentC),  position(potion, health, PotionR, PotionC),
+                                            next_step(AgentR, AgentC, PotionR, PotionC, D),
+                                            safe_direction(AgentR, AgentC, D, Direction). \+ healthy.
 
 % -----------------------------------------------------------------------------------------------
 
@@ -51,11 +59,10 @@ safe_direction(R, C, D, Direction) :- resulting_position(R, C, NewR, NewC, D),
                                       ).
 
 % a square if unsafe if there is a trap or an enemy
+unsafe_position(R, C) :- position(wall, _, R, C).
 unsafe_position(R, C) :- position(trap, _, R, C).
 unsafe_position(R, C) :- position(enemy, _, R, C).
-unsafe_position(R,C) :- position(enemy, _, ER, EC), is_close(ER, EC, R, C).
-
-
+unsafe_position(R, C) :- position(enemy, _, ER, EC), is_close(ER, EC, R, C), \+ healthy.
 
 %%%% known facts %%%%
 opposite(north, south).
@@ -98,8 +105,4 @@ has(agent, _, _) :- fail.
 unsafe_position(_,_) :- fail.
 safe_position(R,C) :- \+ unsafe_position(R,C).
 
-is_beatable(kobold, _).
-is_beatable(giantmummy, tsurugi).
-
-is_pickable(comestible).
-is_pickable(weapon).
+is_pickable(potion).
