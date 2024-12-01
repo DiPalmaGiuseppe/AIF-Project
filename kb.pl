@@ -1,7 +1,7 @@
 :- dynamic position/4.
 :- dynamic wields_weapon/2.
 :- dynamic health/1.
-:- dynamic has/3.
+:- dynamic has/4.
 :- dynamic stepping_on/3.
 :- dynamic unsafe_position/2.
 
@@ -18,13 +18,13 @@ action(run(OppositeDirection)) :- position(agent, _, AgentR, AgentC), position(e
                                   next_step(AgentR, AgentC, EnemyR, EnemyC, Direction),
                                   opposite(Direction, OD), safe_direction(AgentR, AgentC, OD, OppositeDirection).
 
-action(drink) :- has(agent, potion, health), \+ healthy.
+action(drink(Key)) :- has(agent, potion, health, Key), \+ healthy.
 
 action(pick) :- is_pickable(P), stepping_on(agent, P, health).
 
 action(move_towards_potion(Direction)) :-   position(agent, _, AgentR, AgentC),  position(potion, health, PotionR, PotionC),
                                             next_step(AgentR, AgentC, PotionR, PotionC, D),
-                                            safe_direction(AgentR, AgentC, D, Direction). \+ healthy.
+                                            safe_direction(AgentR, AgentC, D, Direction), \+ healthy.
 
 % -----------------------------------------------------------------------------------------------
 
@@ -62,7 +62,7 @@ safe_direction(R, C, D, Direction) :- resulting_position(R, C, NewR, NewC, D),
 unsafe_position(R, C) :- position(wall, _, R, C).
 unsafe_position(R, C) :- position(trap, _, R, C).
 unsafe_position(R, C) :- position(enemy, _, R, C).
-unsafe_position(R, C) :- position(enemy, _, ER, EC), is_close(ER, EC, R, C), \+ healthy.
+%unsafe_position(R, C) :- position(enemy, _, ER, EC), is_close(ER, EC, R, C), \+ healthy.
 
 %%%% known facts %%%%
 opposite(north, south).
@@ -100,7 +100,7 @@ close_direction(southwest, west).
 close_direction(west, northwest).
 close_direction(northwest, north).
 
-has(agent, _, _) :- fail.
+has(agent, _, _, _) :- fail.
 
 unsafe_position(_,_) :- fail.
 safe_position(R,C) :- \+ unsafe_position(R,C).

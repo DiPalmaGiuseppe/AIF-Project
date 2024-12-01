@@ -1,11 +1,12 @@
 import matplotlib.pyplot as plt
 import IPython.display as display
 import time
+import re
 from pyswip import Prolog
 from minihack import LevelGenerator
 from minihack import RewardManager
 
-def create_level(width: int, height: int, monsters = [], traps = [], weapons = [], potion = False):
+def create_level(width: int, height: int, monsters = [], traps = [], weapons = [], potion = False, armor = False):
 
     lvl = LevelGenerator(w=width, h=height)
 
@@ -22,6 +23,9 @@ def create_level(width: int, height: int, monsters = [], traps = [], weapons = [
     
     if potion:
         lvl.add_object(name = "full healing", symbol = "!")
+    
+    if armor:
+        lvl.add_object(name = "leather armor", symbol = "[")
 
     return lvl.get_des()
 
@@ -38,7 +42,10 @@ def perform_action(action, env, kb):
     if action == 'pick': 
         action_id = 49
         kb.retractall(f'stepping_on(agent, potion, health)')
-        kb.asserta(f'has(agent, potion, health)')
+        obs, _, _, _ = env.step(action_id)
+        mapped_key = bytes(obs['message']).decode('utf-8').rstrip('\x00').split('-')[0].replace(" ", "")
+        kb.asserta(f'has(agent, potion, health, {mapped_key})')
+        return None
         
     elif action == 'wield': action_id = 78
     elif 'northeast' in action: action_id = 4
@@ -49,11 +56,22 @@ def perform_action(action, env, kb):
     elif 'east' in action: action_id = 1
     elif 'south' in action: action_id = 2
     elif 'west' in action: action_id = 3
+    
+    elif 'drink' in action:
+        mapped_key = re.search(r"drink\((.*?)\)", action).group(1)
+        action_id = 52
+        kb.retractall(f'has(agent, potion, health, {mapped_key})')
+        obs, _, _, _ = env.step(action_id)
+        message = bytes(obs['message']).decode('utf-8').rstrip('\x00')
+        action_id = env.actions.index(ord(mapped_key))
 
+    # print(f'Action performed: {repr(env.actions[action_id])}')
     return env.step(action_id)
 
 def process_state(obs: dict, kb: Prolog, monsters, weapons = []):
     kb.retractall("position(_,_,_,_)")
+    kb.retractall("stepping_on(_,_,_)")
+    kb.retractall("health(_)")
 
     for i in range(21):
         for j in range(79):
@@ -77,19 +95,18 @@ def process_state(obs: dict, kb: Prolog, monsters, weapons = []):
         if 'potion' in message:
             kb.asserta('stepping_on(agent, potion, health)')
 
-    kb.retractall("position(agent,_,_,_)")
-    kb.retractall("health(_)")
     kb.asserta(f"position(agent, _, {obs['blstats'][1]}, {obs['blstats'][0]})")
     kb.asserta(f"health({int(obs['blstats'][10]/obs['blstats'][11]*100)})")
+    # kb.asserta(f"AC({int(obs['blstats'][14])}")
+    # print(obs['blstats'][14])
+    # time.sleep(100)
 
 # indexes for showing the image are hard-coded
 def show_match(states: list):
-    image = plt.imshow(states[0][90:290, 481:750])
+    image = plt.imshow(states[0][20:300, 480:775])
     for state in states[1:]:
-        time.sleep(0.25)
         display.display(plt.gcf())
         display.clear_output(wait=True)
-        image.set_data(state[90:290, 481:750])
-    time.sleep(0.25)
+        image.set_data(state[20:300, 480:775])
     display.display(plt.gcf())
     display.clear_output(wait=True)
