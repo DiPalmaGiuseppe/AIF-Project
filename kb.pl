@@ -20,7 +20,7 @@ action(run(OppositeDirection)) :- position(agent, _, AgentR, AgentC), position(e
 
 action(drink(Key)) :- has(agent, potion, health, Key), \+ healthy.
 
-action(pick) :- is_pickable(P), stepping_on(agent, P, health).
+action(pick(Type,Name)) :- is_pickable(Type), stepping_on(agent, Type, Name).
 
 action(move_towards_potion(Direction)) :-   position(agent, _, AgentR, AgentC),  position(potion, health, PotionR, PotionC),
                                             next_step(AgentR, AgentC, PotionR, PotionC, D),
@@ -106,3 +106,5 @@ unsafe_position(_,_) :- fail.
 safe_position(R,C) :- \+ unsafe_position(R,C).
 
 is_pickable(potion).
+is_pickable(weapon).
+
