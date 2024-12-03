@@ -1,7 +1,7 @@
 :- dynamic position/4.
 :- dynamic wields_weapon/2.
 :- dynamic health/1.
-:- dynamic has/4.
+:- dynamic has/3.
 :- dynamic stepping_on/3.
 :- dynamic unsafe_position/2.
 
@@ -18,13 +18,21 @@ action(run(OppositeDirection)) :- position(agent, _, AgentR, AgentC), position(e
                                   next_step(AgentR, AgentC, EnemyR, EnemyC, Direction),
                                   opposite(Direction, OD), safe_direction(AgentR, AgentC, OD, OppositeDirection).
 
-action(drink(Key)) :- has(agent, potion, health, Key), \+ healthy.
+action(drink) :- has(agent, potion, _), \+ healthy.
 
-action(pick(Type,Name)) :- is_pickable(Type), stepping_on(agent, Type, Name).
+action(pick(Type, Name)) :- is_pickable(Type), stepping_on(agent, Type, Name).
 
 action(move_towards_potion(Direction)) :-   position(agent, _, AgentR, AgentC),  position(potion, health, PotionR, PotionC),
                                             next_step(AgentR, AgentC, PotionR, PotionC, D),
                                             safe_direction(AgentR, AgentC, D, Direction), \+ healthy.
+
+action(move_towards_weapon(Direction)) :-   position(agent, _, AgentR, AgentC),  position(weapon, _, WeaponR, WeaponC),
+                                            next_step(AgentR, AgentC, WeaponR, WeaponC, D),
+                                            safe_direction(AgentR, AgentC, D, Direction).
+
+action(move_towards_armor(Direction)) :-   position(agent, _, AgentR, AgentC),  position(armor, _, ArmorR, ArmorC),
+                                            next_step(AgentR, AgentC, ArmorR, ArmorC, D),
+                                            safe_direction(AgentR, AgentC, D, Direction).
 
 % -----------------------------------------------------------------------------------------------
 
@@ -100,7 +108,7 @@ close_direction(southwest, west).
 close_direction(west, northwest).
 close_direction(northwest, north).
 
-has(agent, _, _, _) :- fail.
+has(agent, _, _) :- fail.
 
 unsafe_position(_,_) :- fail.
 safe_position(R,C) :- \+ unsafe_position(R,C).

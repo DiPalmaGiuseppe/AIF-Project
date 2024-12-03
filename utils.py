@@ -19,7 +19,7 @@ def create_level(width: int, height: int, monsters = [], traps = [], weapons = [
         lvl.add_trap(name = trap)
 
     for weapon in weapons:
-        lvl.add_weapon(name = weapon)
+        lvl.add_object(name = weapon, symbol=')')
     
     if potion:
         lvl.add_object(name = "full healing", symbol = "!")
@@ -41,16 +41,12 @@ def perform_action(action, env, kb):
     action_id = -1
     if 'pick' in action: 
         action_id = 49
-        classObject = re.search(r"pick\((.*?)\)", action)
-        
-        if classObject == "potion":
-            kb.retractall(f'stepping_on(agent, potion, health)')
-            obs, _, _, _ = env.step(action_id)
-            mapped_key = bytes(obs['message']).decode('utf-8').rstrip('\x00').split('-')[0].replace(" ", "")
-            kb.asserta(f'has(agent, potion, health, {mapped_key})')
-            return None
-        else classObject == "weapon":
-            pass
+        match = re.search(r"pick\(([^,]+),\s*([^)]+)\)", action)
+        item_type = match.group(1)
+        item_name = match.group(2)
+        obs, _, _, _ = env.step(action_id)
+        # mapped_key = bytes(obs['message']).decode('utf-8').rstrip('\x00').split('-')[0].replace(" ", "")
+        return None
         
     elif action == 'wield': action_id = 78
     elif 'northeast' in action: action_id = 4
@@ -63,19 +59,20 @@ def perform_action(action, env, kb):
     elif 'west' in action: action_id = 3
     
     elif 'drink' in action:
-        mapped_key = re.search(r"drink\((.*?)\)", action).group(1)
         action_id = 52
-        kb.retractall(f'has(agent, potion, health, {mapped_key})')
         obs, _, _, _ = env.step(action_id)
         message = bytes(obs['message']).decode('utf-8').rstrip('\x00')
+        print(message)
+        time.sleep(1000)
         action_id = env.actions.index(ord(mapped_key))
 
     # print(f'Action performed: {repr(env.actions[action_id])}')
     return env.step(action_id)
 
-def process_state(obs: dict, kb: Prolog, monsters, weapons = []):
+def process_state(obs: dict, kb: Prolog, monsters):
     kb.retractall("position(_,_,_,_)")
     kb.retractall("stepping_on(_,_,_)")
+    kb.retractall("has(_,_,_)")
     kb.retractall("health(_)")
 
     for i in range(21):
@@ -84,12 +81,17 @@ def process_state(obs: dict, kb: Prolog, monsters, weapons = []):
                 obj = bytes(obs['screen_descriptions'][i][j]).decode('utf-8').rstrip('\x00')
                 if 'wall' == obj:
                     kb.asserta(f'position(wall, _, {i}, {j})')
-                if 'corpse' in obj:
+                elif 'corpse' in obj:
                     kb.asserta(f'position(trap, _, {i}, {j})')
-                elif 'sword' in obj:
-                    kb.asserta(f'position(weapon, {weapon}, {i}, {j})')
                 elif 'potion' in obj:
-                    kb.asserta(f'position(potion, health, {i},{j})')
+                    kb.asserta(f'position(potion, _, {i},{j})')
+                elif "sword" in obj:
+                    kb.asserta(f'position(weapon, sword, {i}, {j})')
+                elif "bow" in obj:
+                    kb.asserta(f'position(weapon, bow, {i}, {j})')
+                elif "armor" in obj:
+                    armor_material = re.search(r"a (\w+) armor", obj).group(1)
+                    kb.asserta(f'position(armor, {armor_material}, {i}, {j})')
 
                 for monster in monsters:
                     if monster == obj:
@@ -98,19 +100,24 @@ def process_state(obs: dict, kb: Prolog, monsters, weapons = []):
     message = bytes(obs['message']).decode('utf-8').rstrip('\x00')
     if 'You see here' in message:
         if 'potion' in message:
-            kb.asserta('stepping_on(agent, potion, health)')
-        elif 'long word' in message:
+            potion_color = re.search(r"You see here an? (\w+\ ?\w*) potion", message).group(1)
+            kb.asserta(f'stepping_on(agent, potion, {potion_color.replace(" ", "")})')
+        elif 'tsurugi' in message:
             kb.asserta('stepping_on(agent, weapon, tsurugi)')
+        elif 'bow' in message:
+            kb.asserta('stepping_on(agent, weapon, bow)')
 
     for item in obs["inv_strs"]:
         obj = bytes(item).decode('utf-8').rstrip('\x00')
-        if 'katana' in obj:
-            kb.asserta("has(agent, weapon, katana, a)")
-        if 'tsurugi' in obj:
-            kb.asserta("has(agent, weapon, tsurugi, b)")
+        if obj != '':
+            if 'tsurugi' in obj:
+                kb.asserta("has(agent, weapon, tsurugi)")
+            if 'bow' in obj:
+                kb.asserta("has(agent, weapon, bow)")
 
     kb.asserta(f"position(agent, _, {obs['blstats'][1]}, {obs['blstats'][0]})")
     kb.asserta(f"health({int(obs['blstats'][10]/obs['blstats'][11]*100)})")
+    
 
 # indexes for showing the image are hard-coded
 def show_match(states: list):
