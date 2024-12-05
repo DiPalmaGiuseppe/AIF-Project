@@ -1,37 +1,51 @@
 :- dynamic position/4.
 :- dynamic wields_weapon/2.
 :- dynamic health/1.
-:- dynamic has/3.
+:- dynamic has/4.
 :- dynamic stepping_on/3.
 :- dynamic unsafe_position/2.
 
-action(attack(Direction)) :- position(agent, _, AgentR, AgentC), position(enemy, _, EnemyR, EnemyC),
-                             is_close(AgentR, AgentC, EnemyR, EnemyC),  healthy,
+% action(move_towards_armor(Direction)) :-   position(agent, _, AgentR, AgentC),  position(armor, _, ArmorR, ArmorC),
+%                                             next_step(AgentR, AgentC, ArmorR, ArmorC, D),
+%                                             safe_direction(AgentR, AgentC, D, Direction), healthy.
+
+action(attack(Direction)) :- position(agent, _, AgentR, AgentC), position(enemy, Type, EnemyR, EnemyC),
+                             wields_weapon(agent, Weapon), is_beatable(Type, Weapon), \+ is_shoot_weapon(Weapon),
+                             is_close(AgentR, AgentC, EnemyR, EnemyC), healthy,
                              next_step(AgentR, AgentC, EnemyR, EnemyC, Direction).
 
-action(move_towards_enemy(Direction)) :- position(agent, _, AgentR, AgentC), position(enemy, _, EnemyR, EnemyC),
+action(shoot(Direction)) :- position(agent, _, AgentR, AgentC),
+                            position(enemy, Type, EnemyR, EnemyC),
+                            wields_weapon(agent, Weapon), is_beatable(Type, Weapon), is_shoot_weapon(Weapon),
+                            weapon_range(Weapon, Range), is_in_range(AgentR, AgentC, EnemyR, EnemyC, Range),
+                            next_step(AgentR, AgentC, EnemyR, EnemyC, Direction).
+
+action(move_towards_enemy(Direction)) :- position(agent, _, AgentR, AgentC), position(enemy, Type, EnemyR, EnemyC),
+                                        wields_weapon(agent, Weapon), is_beatable(Type, Weapon),
                                         next_step(AgentR, AgentC, EnemyR, EnemyC, D), healthy,
                                         safe_direction(AgentR, AgentC, D, Direction).
 
-action(run(OppositeDirection)) :- position(agent, _, AgentR, AgentC), position(enemy, _, EnemyR, EnemyC),
-                                  is_close(AgentR, AgentC, EnemyR, EnemyC),  \+ healthy,
+action(run(OppositeDirection)) :- position(agent, _, AgentR, AgentC), position(enemy, Type, EnemyR, EnemyC),
+                                  is_close(AgentR, AgentC, EnemyR, EnemyC),
+                                  (\+ healthy; (wields_weapon(agent, Weapon), \+ is_beatable(Type, Weapon))),
                                   next_step(AgentR, AgentC, EnemyR, EnemyC, Direction),
                                   opposite(Direction, OD), safe_direction(AgentR, AgentC, OD, OppositeDirection).
 
-action(drink) :- has(agent, potion, _), \+ healthy.
+action(wield(Key)) :- position(enemy, Type, _, _), wields_weapon(agent, Weapon),
+                      \+ is_beatable(Type, Weapon), has(agent, weapon, NewWeapon, Key), is_beatable(Type, NewWeapon).
 
-action(pick(Type, Name)) :- is_pickable(Type), stepping_on(agent, Type, Name).
+action(drink(Key)) :- has(agent, potion, _, Key), \+ healthy.
+
+action(pick) :- is_pickable(Type), stepping_on(agent, Type, _).
 
 action(move_towards_potion(Direction)) :-   position(agent, _, AgentR, AgentC),  position(potion, health, PotionR, PotionC),
                                             next_step(AgentR, AgentC, PotionR, PotionC, D),
                                             safe_direction(AgentR, AgentC, D, Direction), \+ healthy.
-
+                                        
 action(move_towards_weapon(Direction)) :-   position(agent, _, AgentR, AgentC),  position(weapon, _, WeaponR, WeaponC),
+                                            position(enemy, Type, _, _),
+                                            wields_weapon(agent, Weapon), \+ is_beatable(Type, Weapon),
                                             next_step(AgentR, AgentC, WeaponR, WeaponC, D),
-                                            safe_direction(AgentR, AgentC, D, Direction).
-
-action(move_towards_armor(Direction)) :-   position(agent, _, AgentR, AgentC),  position(armor, _, ArmorR, ArmorC),
-                                            next_step(AgentR, AgentC, ArmorR, ArmorC, D),
                                             safe_direction(AgentR, AgentC, D, Direction).
 
 % -----------------------------------------------------------------------------------------------
@@ -67,10 +81,11 @@ safe_direction(R, C, D, Direction) :- resulting_position(R, C, NewR, NewC, D),
                                       ).
 
 % a square if unsafe if there is a trap or an enemy
+unsafe_position(_,_) :- fail.
 unsafe_position(R, C) :- position(wall, _, R, C).
 unsafe_position(R, C) :- position(trap, _, R, C).
 unsafe_position(R, C) :- position(enemy, _, R, C).
-%unsafe_position(R, C) :- position(enemy, _, ER, EC), is_close(ER, EC, R, C), \+ healthy.
+unsafe_position(R, C) :- position(enemy, _, ER, EC), is_close(ER, EC, R, C).
 
 %%%% known facts %%%%
 opposite(north, south).
@@ -108,11 +123,25 @@ close_direction(southwest, west).
 close_direction(west, northwest).
 close_direction(northwest, north).
 
-has(agent, _, _) :- fail.
+% Check if an enemy is within a specified range
+is_in_range(R1, C1, R2, C2, Range) :-
+    DX is abs(R2 - R1),
+    DY is abs(C2 - C1),
+    max(DX, DY) =< Range.
 
-unsafe_position(_,_) :- fail.
+weapon_range(yumi, 5).
+
+has(agent, _, _,_) :- fail.
+
 safe_position(R,C) :- \+ unsafe_position(R,C).
 
 is_pickable(potion).
 is_pickable(weapon).
 
+is_shoot_weapon(yumi).
+
+is_beatable(goblin, katana).
+is_beatable(kobold, katana).
+is_beatable(sewerrat, katana).
+is_beatable(homunculus, katana).
+is_beatable(killerbee, yumi).

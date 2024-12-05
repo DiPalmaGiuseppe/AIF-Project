@@ -6,6 +6,10 @@ from pyswip import Prolog
 from minihack import LevelGenerator
 from minihack import RewardManager
 
+inventory_key = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+inventory_weapon = ['katana','wakizashi','tsurugi','bow', 'axe','two-handed sword', 'yumi']
+
+
 def create_level(width: int, height: int, monsters = [], traps = [], weapons = [], potion = False, armor = False):
 
     lvl = LevelGenerator(w=width, h=height)
@@ -39,16 +43,23 @@ def define_reward(monsters):
 
 def perform_action(action, env, kb):
     action_id = -1
+
+    if 'shoot' in action:
+        action_id = 34
+        direction = re.search(r"shoot\((.+)\)", action).group(1)
+        obs, _, _, _ = env.step(action_id)
+        action = direction
+
     if 'pick' in action: 
         action_id = 49
-        match = re.search(r"pick\(([^,]+),\s*([^)]+)\)", action)
-        item_type = match.group(1)
-        item_name = match.group(2)
-        obs, _, _, _ = env.step(action_id)
-        # mapped_key = bytes(obs['message']).decode('utf-8').rstrip('\x00').split('-')[0].replace(" ", "")
         return None
         
-    elif action == 'wield': action_id = 78
+    elif 'wield' in action:
+        action_id = 78
+        mapped_key = re.search(r"wield\((.)\)", action).group(1)
+        obs, _, _, _ = env.step(action_id)
+        action_id = env.actions.index(ord(mapped_key))
+
     elif 'northeast' in action: action_id = 4
     elif 'southeast' in action: action_id = 5
     elif 'southwest' in action: action_id = 6
@@ -60,10 +71,8 @@ def perform_action(action, env, kb):
     
     elif 'drink' in action:
         action_id = 52
+        mapped_key = re.search(r"drink\((.)\)", action).group(1)
         obs, _, _, _ = env.step(action_id)
-        message = bytes(obs['message']).decode('utf-8').rstrip('\x00')
-        print(message)
-        time.sleep(1000)
         action_id = env.actions.index(ord(mapped_key))
 
     # print(f'Action performed: {repr(env.actions[action_id])}')
@@ -72,7 +81,8 @@ def perform_action(action, env, kb):
 def process_state(obs: dict, kb: Prolog, monsters):
     kb.retractall("position(_,_,_,_)")
     kb.retractall("stepping_on(_,_,_)")
-    kb.retractall("has(_,_,_)")
+    kb.retractall("wields_weapon(_,_)")
+    kb.retractall("has(_,_,_,_)")
     kb.retractall("health(_)")
 
     for i in range(21):
@@ -100,20 +110,30 @@ def process_state(obs: dict, kb: Prolog, monsters):
     message = bytes(obs['message']).decode('utf-8').rstrip('\x00')
     if 'You see here' in message:
         if 'potion' in message:
-            potion_color = re.search(r"You see here an? (\w+\ ?\w*) potion", message).group(1)
+            potion_color = re.search(r"You see here an? ([\w\-]+\ ?[\w\-]*) potion", message).group(1)
             kb.asserta(f'stepping_on(agent, potion, {potion_color.replace(" ", "")})')
         elif 'tsurugi' in message:
             kb.asserta('stepping_on(agent, weapon, tsurugi)')
         elif 'bow' in message:
             kb.asserta('stepping_on(agent, weapon, bow)')
 
-    for item in obs["inv_strs"]:
+
+    # print("-----------INVENTORY----------------")
+    for i, item in enumerate(obs["inv_strs"]):
         obj = bytes(item).decode('utf-8').rstrip('\x00')
         if obj != '':
-            if 'tsurugi' in obj:
-                kb.asserta("has(agent, weapon, tsurugi)")
-            if 'bow' in obj:
-                kb.asserta("has(agent, weapon, bow)")
+            # print(f"{inventory_key[i]}: {obj}")
+            for weapon in inventory_weapon:
+                if weapon in obj:
+                    kb.asserta(f"has(agent, weapon, {weapon}, {inventory_key[i]})")    
+                    if 'weapon in hand' in obj:
+                        kb.asserta(f"wields_weapon(agent, {weapon})")
+
+            if 'potion' in obj:
+                potion_color = re.search(r"an? ([\w\-]+\ ?[\w\-]*) potion", message).group(1)
+                kb.asserta(f"has(agent, potion, {potion_color}, {inventory_key[i]})")
+
+    # print(f"HEALTH: {int(obs['blstats'][10]/obs['blstats'][11]*100)}")
 
     kb.asserta(f"position(agent, _, {obs['blstats'][1]}, {obs['blstats'][0]})")
     kb.asserta(f"health({int(obs['blstats'][10]/obs['blstats'][11]*100)})")
@@ -126,5 +146,7 @@ def show_match(states: list):
         display.display(plt.gcf())
         display.clear_output(wait=True)
         image.set_data(state[20:300, 480:775])
+        # time.sleep(.75)
     display.display(plt.gcf())
     display.clear_output(wait=True)
+    # time.sleep(.75)
