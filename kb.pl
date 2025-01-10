@@ -9,16 +9,16 @@
 %                                             next_step(AgentR, AgentC, ArmorR, ArmorC, D),
 %                                             safe_direction(AgentR, AgentC, D, Direction), healthy.
 
-action(attack(Direction)) :- position(agent, _, AgentR, AgentC), position(enemy, Type, EnemyR, EnemyC),
-                             wields_weapon(agent, Weapon), is_beatable(Type, Weapon), \+ is_shoot_weapon(Weapon),
-                             is_close(AgentR, AgentC, EnemyR, EnemyC), healthy,
-                             next_step(AgentR, AgentC, EnemyR, EnemyC, Direction).
-
 action(shoot(Direction)) :- position(agent, _, AgentR, AgentC),
                             position(enemy, Type, EnemyR, EnemyC),
-                            wields_weapon(agent, Weapon), is_beatable(Type, Weapon), is_shoot_weapon(Weapon),
+                            wields_weapon(agent, Weapon), is_beatable(Type, Weapon),
                             weapon_range(Weapon, Range), is_in_range(AgentR, AgentC, EnemyR, EnemyC, Range),
                             next_step(AgentR, AgentC, EnemyR, EnemyC, Direction).
+
+action(attack(Direction)) :- position(agent, _, AgentR, AgentC), position(enemy, Type, EnemyR, EnemyC),
+                             wields_weapon(agent, Weapon), is_beatable(Type, Weapon),
+                             is_close(AgentR, AgentC, EnemyR, EnemyC), healthy,
+                             next_step(AgentR, AgentC, EnemyR, EnemyC, Direction).
 
 action(move_towards_enemy(Direction)) :- position(agent, _, AgentR, AgentC), position(enemy, Type, EnemyR, EnemyC),
                                         wields_weapon(agent, Weapon), is_beatable(Type, Weapon),
@@ -138,10 +138,10 @@ safe_position(R,C) :- \+ unsafe_position(R,C).
 is_pickable(potion).
 is_pickable(weapon).
 
-is_shoot_weapon(yumi).
 
 is_beatable(goblin, katana).
 is_beatable(kobold, katana).
 is_beatable(sewerrat, katana).
 is_beatable(homunculus, katana).
 is_beatable(killerbee, yumi).
+is_beatable(giantbat, yumi).
