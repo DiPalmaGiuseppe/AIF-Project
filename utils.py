@@ -52,7 +52,6 @@ def perform_action(action, env, kb):
 
     if 'pick' in action: 
         action_id = 49
-        return None
         
     elif 'wield' in action:
         action_id = 78
@@ -130,8 +129,9 @@ def process_state(obs: dict, kb: Prolog, monsters):
                         kb.asserta(f"wields_weapon(agent, {weapon})")
 
             if 'potion' in obj:
+                print(obj)
                 potion_color = re.search(r"an? ([\w\-]+\ ?[\w\-]*) potion", message).group(1)
-                kb.asserta(f"has(agent, potion, {potion_color}, {inventory_key[i]})")
+                kb.asserta(f'has(agent, potion, {potion_color.replace(" ", "")}, {inventory_key[i]})')
 
     # print(f"HEALTH: {int(obs['blstats'][10]/obs['blstats'][11]*100)}")
 
@@ -146,7 +146,7 @@ def show_match(states: list):
         display.display(plt.gcf())
         display.clear_output(wait=True)
         image.set_data(state[20:300, 480:775])
-        # time.sleep(.75)
+        # time.sleep(.5)
     display.display(plt.gcf())
     display.clear_output(wait=True)
-    # time.sleep(.75)
+    # time.sleep(.5)
