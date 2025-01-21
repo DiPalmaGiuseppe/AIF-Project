@@ -1,4 +1,4 @@
 gym==0.23.0
 matplotlib==3.9.2
 pyswip==0.3.2
-minihack==0.ll
+minihack==0.1.6
